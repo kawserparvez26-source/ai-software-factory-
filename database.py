@@ -223,5 +223,60 @@ def get_engine_metrics_report() -> dict:
     except Exception as e:
         logger.error(f"Metrics fetch routine execution failed: {str(e)}")
         return {}
+import sqlite3
+import logging
 
+# Configure structured logging for production auditing
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def init_crypto_payment_system(db_path: str = 'users.db'):
+    """
+    Version 3.0: High-Concurrency Web3 Core Database Architecture.
+    Initializes the immutable ledger tables required to process safe cryptographic transactions.
+    Ensures strict schema integrity and idempotency using UNIQUE constraints.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 1. Commercial layer table to track invoices and order lifecycles
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                order_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                product_name TEXT NOT NULL,
+                price_usdt REAL NOT NULL,
+                status TEXT DEFAULT 'PENDING', -- PENDING, VERIFYING, APPROVED, REJECTED
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # 2. Cryptographic ledger table to trap and prevent Replay Attacks
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS crypto_payments (
+                payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                tx_hash TEXT UNIQUE NOT NULL, -- Strict cryptographic firewall against duplication
+                amount_paid REAL NOT NULL,
+                crypto_currency TEXT DEFAULT 'USDT_TON',
+                status TEXT DEFAULT 'VERIFYING',
+                submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (order_id) REFERENCES orders(order_id)
+            )
+        ''')
+
+        conn.commit()
+        logging.info("[Web3 Engine] Crypto Ledger Tables Initialized Successfully.")
+        
+    except sqlite3.Error as error:
+        logging.error(f"[Database Error] Schema initialization failed: {error}")
+    finally:
+        if conn:
+            conn.close()
+
+if __name__ == "__main__":
+    init_crypto_payment_system()
+    
         
