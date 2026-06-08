@@ -278,5 +278,125 @@ def init_crypto_payment_system(db_path: str = 'users.db'):
 
 if __name__ == "__main__":
     init_crypto_payment_system()
+
+
+ import sqlite3
+from datetime import datetime
+
+def init_mining_infrastructure():
+    """
+    Natively provisions the distributed Web3 AI mining ledger table
+    and safe-guards it against database schema corruption.
+    """
+    conn = sqlite3.connect("crypto_factory.db")
+    cursor = conn.cursor()
+    
+    # Creating an isolated sub-ledger for gamified user mining mechanics
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_mining_nodes (
+            user_id INTEGER PRIMARY KEY,
+            mining_balance REAL DEFAULT 0.0,
+            base_speed REAL DEFAULT 2.0,
+            referral_speed_bonus REAL DEFAULT 0.0,
+            last_checkpoint TEXT,
+            referred_by INTEGER DEFAULT NULL,
+            total_referrals INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def activate_or_fetch_mining_node(user_id: int, referrer_id: int = None) -> dict:
+    """
+    Idempotently registers a user into the H2O mining mesh.
+    Awards welcome tokens and sets up the base 2x molecular speed bond.
+    """
+    init_mining_infrastructure()
+    conn = sqlite3.connect("crypto_factory.db")
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT mining_balance, base_speed, referral_speed_bonus, total_referrals, referred_by FROM user_mining_nodes WHERE user_id = ?", (user_id,))
+    existing_node = cursor.fetchone()
+    
+    now_str = datetime.utcnow().isoformat()
+    WELCOME_BONUS = 1000.0  # Instant Welcome Reward Tokens
+    
+    if not existing_node:
+        # Check if a valid cross-referral link was used to initialize the bond
+        valid_referrer = None
+        if referrer_id and int(referrer_id) != user_id:
+            cursor.execute("SELECT user_id FROM user_mining_nodes WHERE user_id = ?", (referrer_id,))
+            if cursor.fetchone():
+                valid_referrer = int(referrer_id)
+        
+        # Insert user node with Welcome Bonus and initial 2x core speed limits
+        cursor.execute('''
+            INSERT INTO user_mining_nodes (user_id, mining_balance, base_speed, last_checkpoint, referred_by)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, WELCOME_BONUS, 2.0, now_str, valid_referrer))
+        
+        if valid_referrer:
+            # Atomic update: Increments referrer's network volume and appends +1x speed booster
+            cursor.execute('''
+                UPDATE user_mining_nodes 
+                SET total_referrals = total_referrals + 1,
+                    referral_speed_bonus = referral_speed_bonus + 1.0
+                WHERE user_id = ?
+            ''', (valid_referrer,))
+            
+        conn.commit()
+        conn.close()
+        return {
+            "balance": WELCOME_BONUS,
+            "total_speed": 2.0,
+            "referrals": 0,
+            "is_new": True
+        }
+    
+    conn.close()
+    return calculate_realtime_mined_tokens(user_id)
+
+def calculate_realtime_mined_tokens(user_id: int) -> dict:
+    """
+    Executes the proof-of-time micro-inference matrix to calculate accrued tokens
+    since the last claimed checkpoint based on total aggregated speed nodes.
+    """
+    conn = sqlite3.connect("crypto_factory.db")
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT mining_balance, base_speed, referral_speed_bonus, last_checkpoint, total_referrals FROM user_mining_nodes WHERE user_id = ?", (user_id,))
+    node = cursor.fetchone()
+    
+    if not node:
+        conn.close()
+        return {"balance": 0.0, "total_speed": 2.0, "referrals": 0}
+    
+    current_balance, base_speed, referral_bonus, last_checkpoint_str, total_referrals = node
+    total_speed = base_speed + referral_bonus  # Total Speed = 2x Base + (1x * Friends)
+    
+    # Computing exact elapsed clock cycles (seconds passed)
+    last_check = datetime.fromisoformat(last_checkpoint_str)
+    elapsed_seconds = (datetime.utcnow() - last_check).total_seconds()
+    
+    # 0.001 tokens mined per unit of speed multiplier per second
+    generated_tokens = elapsed_seconds * (total_speed * 0.001)
+    new_balance = current_balance + generated_tokens
+    
+    # Persisting the updated ledger state
+    now_str = datetime.utcnow().isoformat()
+    cursor.execute('''
+        UPDATE user_mining_nodes 
+        SET mining_balance = ?, last_checkpoint = ? 
+        WHERE user_id = ?
+    ''', (new_balance, now_str, user_id))
+    
+    conn.commit()
+    conn.close()
+    
+    return {
+        "balance": round(new_balance, 3),
+        "total_speed": total_speed,
+        "referrals": total_referrals
+    }
     
         
