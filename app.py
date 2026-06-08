@@ -10,6 +10,13 @@ import time
 from math import ceil
 from collections import defaultdict
 import threading
+# Existing imports placeholder... mofidy database import block to include new layers:
+from database import (
+    init_db, save_user, get_user_count, get_all_users,
+    ban_user, unban_user, is_banned, get_banned_count,
+    save_chat_memory, get_chat_memory, get_engine_metrics_report,
+    activate_or_fetch_mining_node, calculate_realtime_mined_tokens # <── Add these two
+)
 
 import config
 from database import (
@@ -87,9 +94,47 @@ def get_verified_main_keyboard():
     markup.row(btn_support)
     return markup
 
+# ====================================================================
+# HANDLER: MOLECULAR START COMMAND WITH DEEP-LINK DECODING LAYER
+# ====================================================================
 @bot.message_handler(commands=['start'])
-def handle_start_command(message):
-    user = message.from_user
+def handle_start_and_referral_ingress(message):
+    """
+    Intercepts user activation intents, parses the atomic referral tracking codes,
+    and provisions the initial cloud mining allocations.
+    """
+    user_id = message.from_user.id
+    username = message.from_user.username or "Anonymous Node"
+    chat_id = message.chat.id
+    
+    if is_banned(user_id):
+        bot.send_message(chat_id, "🚫 Your node has been blacklisted from the sovereign mesh.")
+        return
+        
+    save_user(user_id, username)
+    
+    # Parsing deep-link codes (e.g., /start ref_12345)
+    command_args = message.text.split()
+    detected_referrer = None
+    if len(command_args) > 1 and command_args[1].startswith("ref_"):
+        try:
+            detected_referrer = int(command_args[1].replace("ref_", ""))
+        except ValueError:
+            pass
+            
+    # Activating the user's personal cloud engine node with Welcome Bonus (1000 Tokens) & 2x Base Speed
+    mining_data = activate_or_fetch_mining_node(user_id, detected_referrer)
+    
+    welcome_msg = (
+        f"🛸 *Welcome to the Sovereign AI Software Factory Core!*\n\n"
+        f"💎 *Welcome Bonus Received:* `1,000.000 FACTORY Tokens`\n"
+        f"⚡ *Autonomous Baseline Speed Active:* `{mining_data['total_speed']}x Multiplier`\n\n"
+        f"⛏️ Your decentralized cloud miner is now eternally active in the background. "
+        f"Type `/mine` to access your dynamic ledger dashboard or `/frenz` to scale your network bond!"
+    )
+    
+    bot.send_message(chat_id, welcome_msg, parse_mode="Markdown")
+    
     
     if is_banned(user.id):
         bot.reply_to(message, "🚫 Access Denied! Your node identifier is blacklisted by administration.")
@@ -196,6 +241,102 @@ def handle_help_catalog(message):
             "`/backup` - Export Physical Schema State\n"
         )
     bot.reply_to(message, catalog, parse_mode="Markdown")
+
+
+# ====================================================================
+# HANDLER: DECENTRALIZED REAL-TIME MINING LEDGER TERMINAL (/mine)
+# ====================================================================
+@bot.message_handler(commands=['mine'])
+def render_live_mining_terminal(message):
+    """
+    Fetches elapsed computational loops, auto-updates balance states,
+    and returns an actionable summary card to the active terminal node.
+    """
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    
+    if is_banned(user_id): return
+    
+    # Calculate accumulated tokens dynamically on terminal invocation
+    stats = calculate_realtime_mined_tokens(user_id)
+    
+    mining_layout = (
+        f"⛏️ *Sovereign AI Autonomous Cloud Miner* ⛏️\n\n"
+        f"💰 *Current Ledger Balance:* `{stats['balance']} FACTORY`\n"
+        f"⚡ *Calculated Processing Speed:* `{stats['total_speed']}x Multiplier`\n"
+        f"👥 *Network Connected Nodes:* `{stats['referrals']} Referrals`\n\n"
+        f"📈 _Status: Operational. The baseline 2x power is scaling dynamically "
+        f"with every new particle connection injected into your network layer._"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(text="🔄 Sync & Claim Checkpoint", callback_data="refresh_mining_stats"))
+    
+    bot.send_message(chat_id, mining_layout, parse_mode="Markdown", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "refresh_mining_stats")
+def trigger_terminal_refresh(call):
+    """
+    Callback wrapper to allow users to force checkpoint state updates synchronously.
+    """
+    user_id = call.from_user.id
+    stats = calculate_realtime_mined_tokens(user_id)
+    
+    updated_layout = (
+        f"⛏️ *Sovereign AI Autonomous Cloud Miner* ⛏️\n\n"
+        f"💰 *Current Ledger Balance:* `{stats['balance']} FACTORY`\n"
+        f"⚡ *Calculated Processing Speed:* `{stats['total_speed']}x Multiplier`\n"
+        f"👥 *Network Connected Nodes:* `{stats['referrals']} Referrals`\n\n"
+        f"⏳ _Last Sync Checkpoint: Just Now (UTC)_"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(text="🔄 Sync & Claim Checkpoint", callback_data="refresh_mining_stats"))
+    
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=updated_layout,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        bot.answer_callback_query(call.id, text="🚀 Ledger synchronized successfully!")
+    except Exception:
+        bot.answer_callback_query(call.id)
+
+# ====================================================================
+# HANDLER: H2O MOLECULAR VIRAL REFERRAL BRIDGE CONTROLLER (/frenz)
+# ====================================================================
+@bot.message_handler(commands=['frenz'])
+def display_referral_extraction_bridge(message):
+    """
+    Extracts the user node ID, creates a dynamic sub-routing link string,
+    and returns a tailored recruitment dispatch grid.
+    """
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    
+    if is_banned(user_id): return
+    
+    stats = calculate_realtime_mined_tokens(user_id)
+    bot_info = bot.get_me()
+    
+    # Constructing the unique atomic referral matrix string
+    personal_invite_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    
+    frenz_payload = (
+        f"👥 *Sovereign $H_2O$ Viral Referral Network* 👥\n\n"
+        f"🔗 *Your Unique Molecular Invitation Link:*\n"
+        f"`{personal_invite_link}`\n\n"
+        f"🧬 *Current Network Connections:* `{stats['referrals']} Friends`\n"
+        f"⚡ *Aggregated Multiplier Bonus:* `+{stats['total_speed'] - 2.0}x Power`\n\n"
+        f"🎁 *Rule Matrix:* Invite your friends right now! Each successful node injection "
+        f"awards them `1,000 Welcome Tokens` instantly and unlocks an extra *+1x speed booster* permanently for your factory layout!"
+    )
+    
+    bot.send_message(chat_id, frenz_payload, parse_mode="Markdown")
+    
     
 @bot.message_handler(commands=['admin', 'panel'])
 def handle_admin_panel_command(message):
